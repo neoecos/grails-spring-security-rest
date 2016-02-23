@@ -1,6 +1,7 @@
 package co.tpaga.grails.plugin.springsecurity.rest
 
 import co.tpaga.grails.plugin.springsecurity.rest.apiKey.storage.ApiKeyStorageService
+import org.springframework.security.authentication.DisabledException
 
 /**
  * @author Sebastián Ortiz V. <sortiz@tappsi.co>
@@ -37,8 +38,13 @@ class RestApiKeyAuthenticationProvider implements AuthenticationProvider {
         if (authenticationRequest.apiKeyValue) {
             log.debug "Trying to validate token ${authenticationRequest.apiKeyValue}"
             def userDetails = apiKeyStorageService.loadUserByApiKey(authenticationRequest.apiKeyValue)
-            authenticationResult = new RestApiKeyAuthenticationToken(userDetails, userDetails.password, userDetails.authorities, authenticationRequest.apiKeyValue)
-            log.debug "Authentication result: ${authenticationResult}"
+            if (userDetails.isAccountNonLocked() && userDetails.isEnabled()) {
+                authenticationResult = new RestApiKeyAuthenticationToken(userDetails, userDetails.password, userDetails.authorities, authenticationRequest.apiKeyValue)
+                log.debug "Authentication result for enabled and unlocked user: ${authenticationResult}"
+            } else {
+                log.debug "Auth failed - user locked or disabled"
+                throw new DisabledException("user account locked/disabled")
+            }
         }
 
         return authenticationResult
